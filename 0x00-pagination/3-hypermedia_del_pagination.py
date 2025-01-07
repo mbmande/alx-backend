@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-""" 
-======================================
+"""===================
 """
-
 import csv
-import math
-from typing import List, Dict
+from typing import Dict, List
 
 
 class Server:
@@ -14,6 +11,8 @@ class Server:
     DATA_FILE = "Popular_Baby_Names.csv"
 
     def __init__(self):
+        """Initializes a new Server instance.
+        """
         self.__dataset = None
         self.__indexed_dataset = None
 
@@ -40,23 +39,27 @@ class Server:
         return self.__indexed_dataset
 
     def get_hyper_index(self, index: int = None, page_size: int = 10) -> Dict:
-        # Check if index is within the range of dataset
-        assert index in range(len(self.dataset()))
-        index_dict = self.indexed_dataset()
-
-        # Check if index is 0 and page_size is 10
-        if index == 0 and page_size == 10:
-            # Get the first 10 elements from index_dict
-            data = index_dict[0:10]
-        elif index is None:  # Check if index is None
-            index = index  # Assign index to itself (redundant statement?)
-        # Get the data at the given index from index_dict,
-        # or None if index is not present
-        data = [index_dict[index] if index in index_dict else None]
-
-        return {
-            "index": index,  # Return the index
-            "next_index": index + 1,  # Return the next index
-            "page_size": page_size,  # Return the page size
-            "data": data  # Return the data
+        """Retrieves info about a page from a given index and with a
+        specified size.
+        """
+        data = self.indexed_dataset()
+        assert index is not None and index >= 0 and index <= max(data.keys())
+        page_data = []
+        data_count = 0
+        next_index = None
+        start = index if index else 0
+        for i, item in data.items():
+            if i >= start and data_count < page_size:
+                page_data.append(item)
+                data_count += 1
+                continue
+            if data_count == page_size:
+                next_index = i
+                break
+        page_info = {
+            'index': index,
+            'next_index': next_index,
+            'page_size': len(page_data),
+            'data': page_data,
         }
+        return page_info
