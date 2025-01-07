@@ -1,68 +1,70 @@
 #!/usr/bin/env python3
-
-""" =========================================================================
+"""=======================
 """
+from collections import OrderedDict
 
-BaseCaching = __import__('base_caching').BaseCaching
+from base_caching import BaseCaching
 
 
 class LFUCache(BaseCaching):
-    """ LFUCache class that inherits from BaseCaching
+    """Represents an object that allows storing and
     """
-
     def __init__(self):
-        """ Initialize LFUCache
+        """Initializes the cache.
         """
-        super().__init__()  # Call parent's __init__ method
-        self.access_order = []  # Track order of access
-        self.frequency = {}  # Track the frequency of each key
+        super().__init__()
+        self.cache_data = OrderedDict()
+        self.keys_freq = []
+
+    def __reorder_items(self, mru_key):
+        """Reorders the items in this cache based on the most
+        """
+        max_positions = []
+        mru_freq = 0
+        mru_pos = 0
+        ins_pos = 0
+        for i, key_freq in enumerate(self.keys_freq):
+            if key_freq[0] == mru_key:
+                mru_freq = key_freq[1] + 1
+                mru_pos = i
+                break
+            elif len(max_positions) == 0:
+                max_positions.append(i)
+            elif key_freq[1] < self.keys_freq[max_positions[-1]][1]:
+                max_positions.append(i)
+        max_positions.reverse()
+        for pos in max_positions:
+            if self.keys_freq[pos][1] > mru_freq:
+                break
+            ins_pos = pos
+        self.keys_freq.pop(mru_pos)
+        self.keys_freq.insert(ins_pos, [mru_key, mru_freq])
 
     def put(self, key, item):
-        """ Assign to the dictionary self.cache_data the
+        """Adds an item in the cache.
         """
         if key is None or item is None:
             return
-        # check if cache is full
-        if len(self.cache_data) >= BaseCaching.MAX_ITEMS:
-            # find the key(s) with minimum frequency
-            min_freq = min(self.frequency.values())
-            # get the key(s) with minimum frequency
-            least_frequent_keys = [k for k, v in self.frequency.items()
-                                   if v == min_freq]
-            # if there is more than one key with same minimum frequency
-            if len(least_frequent_keys) > 1:
-                # use LRU algorithm to discard least recently used key
-                lru_key = self.access_order.pop(0)
-                # remove the least recently used key from access order
-                self.access_order.remove(lru_key)
-                # remove the least recently used key from cache data
-                del self.cache_data[lru_key]
-                # remove the least recently used key from frequency
-                del self.frequency[lru_key]
-                print(f"DISCARD: {lru_key}")
-            else:  # only one key with minimum frequency
-                # discard the least frequently used item
-                lfu_key = least_frequent_keys[0]
-                # remove the least frequently used key from access order
-                self.access_order.remove(lfu_key)
-                # remove the least frequently used key from cache data
-                del self.cache_data[lfu_key]
-                # remove the least frequently used key from frequency
-                del self.frequency[lfu_key]
-                print(f"DISCARD: {lfu_key}")
-        self.cache_data[key] = item  # assign item to key in cache data
-        # update frequency of key
-        self.frequency[key] = self.frequency.get(key, 0) + 1
+        if key not in self.cache_data:
+            if len(self.cache_data) + 1 > BaseCaching.MAX_ITEMS:
+                lfu_key, _ = self.keys_freq[-1]
+                self.cache_data.pop(lfu_key)
+                self.keys_freq.pop()
+                print("DISCARD:", lfu_key)
+            self.cache_data[key] = item
+            ins_index = len(self.keys_freq)
+            for i, key_freq in enumerate(self.keys_freq):
+                if key_freq[1] == 0:
+                    ins_index = i
+                    break
+            self.keys_freq.insert(ins_index, [key, 0])
+        else:
+            self.cache_data[key] = item
+            self.__reorder_items(key)
 
     def get(self, key):
-        """ Return value in self.cache_data linked to key
+        """Retrieves an item by key.
         """
-        if key is not None:  # check if key is not None
-            if key in self.cache_data:  # if key exists in cache_data
-                # Update frequency
-                self.frequency[key] += 1
-                if key in self.access_order:
-                    self.access_order.remove(key)
-                self.access_order.append(key)
-            return self.cache_data[key]  # return value associated with key
-        return None  # return None if key is None or key not in cache_data
+        if key is not None and key in self.cache_data:
+            self.__reorder_items(key)
+        return self.cache_data.get(key, None)
